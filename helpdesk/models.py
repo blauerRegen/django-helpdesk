@@ -282,6 +282,12 @@ class Ticket(models.Model):
             'follow-ups left for this task.'),
         )
 
+    submitter_name = models.CharField(
+        _('Submitter Name'),
+        blank=True,
+        null=True,
+        max_length=100
+        )
     assigned_to = models.ForeignKey(
         User,
         related_name='assigned_to',

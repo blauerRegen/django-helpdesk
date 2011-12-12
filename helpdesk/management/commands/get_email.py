@@ -150,6 +150,7 @@ def ticket_from_message(message, queue, quiet):
     sender = message.get('from', _('Unknown Sender'))
     sender = decode_mail_headers(decodeUnknown(message.get_charset(), sender))
 
+    sender_name = parseaddr(sender)[0]
     sender_email = parseaddr(sender)[1]
 
     body_plain, body_html = '', ''
@@ -233,6 +234,7 @@ def ticket_from_message(message, queue, quiet):
         t = Ticket(
             title=subject,
             queue=queue,
+            submitter_name=sender_name,
             submitter_email=sender_email,
             created=now,
             description=body,
@@ -252,7 +254,8 @@ def ticket_from_message(message, queue, quiet):
     }
 
     if new:
-
+        """
+        
         if sender_email:
             send_templated_mail(
                 'newticket_submitter',
@@ -261,6 +264,7 @@ def ticket_from_message(message, queue, quiet):
                 sender=queue.from_address,
                 fail_silently=True,
                 )
+        """
 
         if queue.new_ticket_cc:
             send_templated_mail(

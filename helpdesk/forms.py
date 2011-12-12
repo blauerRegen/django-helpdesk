@@ -121,6 +121,13 @@ class TicketForm(forms.Form):
         label=_('Summary of the problem'),
         )
 
+    submitter_name = forms.CharField(
+        max_length=100,
+        required=False,
+        label=_('Submitter Name'),
+        widget=forms.TextInput(attrs={'size}':'60'}),
+        )
+
     submitter_email = forms.EmailField(
         required=False,
         label=_('Submitter E-Mail Address'),
@@ -297,6 +304,7 @@ class TicketForm(forms.Form):
         
         messages_sent_to = []
 
+        """
         if t.submitter_email:
             send_templated_mail(
                 'newticket_submitter',
@@ -307,6 +315,7 @@ class TicketForm(forms.Form):
                 files=files,
                 )
             messages_sent_to.append(t.submitter_email)
+        """
 
         if t.assigned_to and t.assigned_to != user and getattr(t.assigned_to.usersettings.settings, 'email_on_ticket_assign', False) and t.assigned_to.email and t.assigned_to.email not in messages_sent_to:
             send_templated_mail(
