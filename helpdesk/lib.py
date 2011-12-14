@@ -83,7 +83,7 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         text_footer = context['footer']
 
     text_part = loader.get_template_from_string(
-        "%s\r\n'%s'\r\nEste e-mail está sendo enviado de um usuário do nosso serviço de suporte, de acordo com a nossa política de privacidade\r\n.Por favor avise-nos caso você acredite ter recebido este e-mail por engano." % (t.plain_text, text_footer)
+        u"%s\r\n'%s'\r\nEste e-mail está sendo enviado de um usuário do nosso serviço de suporte, de acordo com a nossa política de privacidade\r\n.Por favor avise-nos caso você acredite ter recebido este e-mail por engano." % (t.plain_text, text_footer)
         ).render(context)
 
     email_html_base_file = os.path.join('helpdesk', locale, 'email_html_base.html')
