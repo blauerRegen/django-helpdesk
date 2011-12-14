@@ -507,6 +507,7 @@ class PublicTicketForm(forms.Form):
 
         messages_sent_to = []
 
+        """
         send_templated_mail(
             'newticket_submitter',
             context,
@@ -516,6 +517,7 @@ class PublicTicketForm(forms.Form):
             files=files,
             )
         messages_sent_to.append(t.submitter_email)
+        """
 
         if q.new_ticket_cc and q.new_ticket_cc not in messages_sent_to:
             send_templated_mail(

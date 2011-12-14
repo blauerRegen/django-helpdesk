@@ -27,7 +27,7 @@ from django import forms
 
 from helpdesk.forms import TicketForm, UserSettingsForm, EmailIgnoreForm, EditTicketForm, TicketCCForm, EditFollowUpForm, TicketDependencyForm
 from helpdesk.lib import send_templated_mail, query_to_dict, apply_query, safe_template_context
-from helpdesk.models import Ticket, Queue, FollowUp, TicketChange, PreSetReply, Attachment, SavedSearch, IgnoreEmail, TicketCC, TicketDependency
+from helpdesk.models import Ticket, Queue, FollowUp, TicketChange, PreSetReply, Attachment, SavedSearch, IgnoreEmail, TicketCC, TicketDependency, Footer
 from helpdesk.settings import HAS_TAG_SUPPORT
 from helpdesk import settings as helpdesk_settings
   
@@ -356,6 +356,11 @@ def update_ticket(request, ticket_id, public=False):
         resolution=ticket.resolution,
         comment=f.comment,
         )
+    
+    try:
+        context['footer'] = Footer.objects.get(user=request.user).text_footer
+    except Footer.DoesNotExist:
+        context['footer'] = None
 
     if ticket.submitter_email and public and (f.comment or (f.new_status in (Ticket.RESOLVED_STATUS, Ticket.CLOSED_STATUS))):
 

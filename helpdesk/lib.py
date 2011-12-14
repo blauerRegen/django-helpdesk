@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """
 django-helpdesk - A Django powered ticket tracker for small enterprise.
 
@@ -76,15 +77,16 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
 
     if not sender:
         sender = settings.DEFAULT_FROM_EMAIL
-
-    footer_file = os.path.join('helpdesk', locale, 'email_text_footer.txt')
+   
+    text_footer = ""
+    if context.has_key('footer'):
+        text_footer = context['footer']
 
     text_part = loader.get_template_from_string(
-        "%s{%% include '%s' %%}" % (t.plain_text, footer_file)
+        "%s\r\n'%s'\r\nEste e-mail esta sendo enviado de um usuario do nosso servico de suporte, de acordo com a nossa politica de privacidade\r\n.Por favor avise-nos caso voce acredite ter recebido este e-mail por erro." % (t.plain_text, text_footer)
         ).render(context)
 
     email_html_base_file = os.path.join('helpdesk', locale, 'email_html_base.html')
-
 
     ''' keep new lines in html emails '''
     from django.utils.safestring import mark_safe
@@ -94,10 +96,15 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         html_txt = html_txt.replace('\r\n', '<br>')
         context['comment'] = mark_safe(html_txt)
 
+    if context.has_key('footer'):
+        html_txt = context['footer']
+        html_txt = html_txt.replace('\r\n', '<br>')
+        context['footer'] = mark_safe(html_txt)
+   
     html_part = loader.get_template_from_string(
         "{%% extends '%s' %%}{%% block title %%}%s{%% endblock %%}{%% block content %%}%s{%% endblock %%}" % (email_html_base_file, t.heading, t.html)
         ).render(context)
-
+   
     subject_part = loader.get_template_from_string(
         "{{ ticket.ticket }} {{ ticket.title|safe }} %s" % t.subject
         ).render(context)
@@ -122,7 +129,7 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         for file in files:
             msg.attach_file(file)
 
-    return msg.send(fail_silently)
+    return msg.send(fail_silently=False)
 
 
 def query_to_dict(results, descriptions):
@@ -205,10 +212,11 @@ def safe_template_context(ticket):
             context['queue'][field] = attr
 
     for field in (  'title', 'created', 'modified', 'submitter_email',
-                    'status', 'get_status_display', 'on_hold', 'description',
-                    'resolution', 'priority', 'get_priority_display',
-                    'last_escalation', 'ticket', 'ticket_for_url',
-                    'get_status', 'ticket_url', 'staff_url', '_get_assigned_to'
+                    'submitter_name', 'status', 'get_status_display', 
+                    'on_hold', 'description', 'resolution', 'priority',
+                    'get_priority_display', 'last_escalation', 'ticket',
+                    'ticket_for_url', 'get_status', 'ticket_url',
+                    'staff_url', '_get_assigned_to'
                  ):
         attr = getattr(ticket, field, None)
         if callable(attr):

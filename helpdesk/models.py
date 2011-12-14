@@ -777,6 +777,20 @@ class EmailTemplate(models.Model):
         ordering = ['template_name', 'locale']
 
 
+class Footer(models.Model):
+    user = models.ForeignKey(
+         User,
+         verbose_name=_('User'),
+         blank=True,
+         null=True,
+        )
+
+    text_footer = models.TextField(
+        _('Email Text Footer'),
+        help_text=_('Text of footer email'),
+        )
+
+
 class KBCategory(models.Model):
     """
     Lets help users help themselves: the Knowledge Base is a categorised
