@@ -86,6 +86,7 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         html_txt = html_txt.replace('\r\n', '<br>')
         context['comment'] = mark_safe(html_txt)
 
+
     if context.has_key('footer') and context['footer'] != None:
         html_txt = context['footer']
         html_txt = html_txt.replace('\r\n', '<br>')
@@ -93,7 +94,7 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         include_footer = "\r\n%s" % footer
     else:
         footer = os.path.join('helpdesk', locale, 'email_text_footer.txt')
-        include_footer = "{%% include '%s' %%}" % footer
+        include_footer = context['footer'] = "{%% include '%s' %%}" % footer
 
     text_part = loader.get_template_from_string(
         u"%s%s" %(t.plain_text, include_footer)
