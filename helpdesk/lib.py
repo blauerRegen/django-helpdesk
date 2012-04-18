@@ -93,8 +93,9 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         footer = context['footer'] = mark_safe(html_txt)
         include_footer = "\r\n%s" % footer
     else:
-        footer = os.path.join('helpdesk', locale, 'email_text_footer.txt')
-        include_footer = context['footer'] = "{%% include '%s' %%}" % footer
+        footer_file = os.path.join('helpdesk', locale, 'email_text_footer.txt')
+        include_footer =  "{%% include '%s' %%}" % footer_file
+        context['footer'] = loader.render_to_string(include_footer, context)
 
     text_part = loader.get_template_from_string(
         u"%s%s" %(t.plain_text, include_footer)
@@ -103,7 +104,9 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
     email_html_base_file = os.path.join('helpdesk', locale, 'email_html_base.html')
 
     html_part = loader.get_template_from_string(
-        "{%% extends '%s' %%}{%% block title %%}%s{%% endblock %%}{%% block content %%}%s{%% endblock %%}" % (email_html_base_file, t.heading, t.html)
+        "{%% extends '%s' %%}{%% block title %%}%s{%% endblock %%} "\
+        "{%% block content %%}%s{%% endblock %%}" % (email_html_base_file,
+        t.heading, t.html)
         ).render(context)
 
     subject_part = loader.get_template_from_string(
