@@ -92,12 +92,12 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         html_txt = html_txt.replace('\r\n', '<br>')
         footer = context['footer'] = mark_safe(html_txt)
     else:
-        footer_file_txt = os.path.join('helpdesk', locale, 'email_text_footer.txt')
+        footer = os.path.join('helpdesk', locale, 'email_text_footer.txt')
         footer_file_html = os.path.join('helpdesk', locale, 'email_footer.html')
         context['footer'] = loader.render_to_string(footer_file_html, context)
 
     text_part = loader.get_template_from_string(
-        u"%s{%% include '%s' %%}" %(t.plain_text, footer_file_txt)
+        u"%s{%% include '%s' %%}" %(t.plain_text, footer)
         ).render(context)
 
     email_html_base_file = os.path.join('helpdesk', locale, 'email_html_base.html')
