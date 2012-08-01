@@ -15,6 +15,7 @@ from django.contrib.auth.models import User
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.core.files.base import ContentFile
 from django.core.urlresolvers import reverse
+from django.core.exceptions import ValidationError
 from django.core import paginator
 from django.db import connection
 from django.db.models import Q
@@ -216,10 +217,20 @@ def view_ticket(request, ticket_id):
 
         return update_ticket(request, ticket_id)
 
+    if helpdesk_settings.HELPDESK_STAFF_ONLY_TICKET_OWNERS:
+        users = User.objects.filter(is_active=True, is_staff=True).order_by('username')
+    else:
+        users = User.objects.filter(is_active=True).order_by('username')
+
+
+    # TODO: shouldn't this template get a form to begin with?
+    form = TicketForm(initial={'due_date':ticket.due_date})
+
     return render_to_response('helpdesk/ticket.html',
         RequestContext(request, {
             'ticket': ticket,
-            'active_users': User.objects.filter(is_active=True).order_by('username'),
+            'form': form,
+            'active_users': users,
             'priorities': Ticket.PRIORITY_CHOICES,
             'preset_replies': PreSetReply.objects.filter(Q(queues=ticket.queue) | Q(queues__isnull=True)),
             'tags_enabled': HAS_TAG_SUPPORT,
@@ -239,6 +250,18 @@ def update_ticket(request, ticket_id, public=False):
     public = request.POST.get('public', False)
     owner = int(request.POST.get('owner', None))
     priority = int(request.POST.get('priority', ticket.priority))
+    due_date_year = int(request.POST.get('due_date_year', 0))
+    due_date_month = int(request.POST.get('due_date_month', 0))
+    due_date_day = int(request.POST.get('due_date_day', 0))
+
+    if not (due_date_year and due_date_month and due_date_day):
+        due_date = ticket.due_date
+    else:
+        if ticket.due_date:
+            due_date = ticket.due_date
+        else:
+            due_date = datetime.now()
+        due_date = due_date.replace(due_date_year, due_date_month, due_date_day)
     tags = request.POST.get('tags', '')
 
     # We need to allow the 'ticket' and 'queue' contexts to be applied to the
@@ -333,6 +356,16 @@ def update_ticket(request, ticket_id, public=False):
         c.save()
         ticket.priority = priority
 
+    if due_date != ticket.due_date:
+        c = TicketChange(
+            followup=f,
+            field=_('Due on'),
+            old_value=ticket.due_date,
+            new_value=due_date,
+            )
+        c.save()
+        ticket.due_date = due_date
+
     if HAS_TAG_SUPPORT:
         if tags != ticket.tags:
             c = TicketChange(
@@ -344,7 +377,7 @@ def update_ticket(request, ticket_id, public=False):
             c.save()
             ticket.tags = tags
 
-    if new_status == Ticket.RESOLVED_STATUS:
+    if new_status in [ Ticket.RESOLVED_STATUS, Ticket.CLOSED_STATUS ]:
         ticket.resolution = comment
 
     messages_sent_to = []
@@ -536,7 +569,7 @@ mass_update = staff_member_required(mass_update)
 def ticket_list(request):
     context = {}
 
-    # Query_params will hold a dictionary of paramaters relating to
+    # Query_params will hold a dictionary of parameters relating to
     # a query, to be saved if needed:
     query_params = {
         'filtering': {},
@@ -614,18 +647,27 @@ def ticket_list(request):
     else:
         queues = request.GET.getlist('queue')
         if queues:
-            queues = [int(q) for q in queues]
-            query_params['filtering']['queue__id__in'] = queues
+            try:
+                queues = [int(q) for q in queues]
+                query_params['filtering']['queue__id__in'] = queues
+            except ValueError:
+                pass
 
         owners = request.GET.getlist('assigned_to')
         if owners:
-            owners = [int(u) for u in owners]
-            query_params['filtering']['assigned_to__id__in'] = owners
+            try:
+                owners = [int(u) for u in owners]
+                query_params['filtering']['assigned_to__id__in'] = owners
+            except ValueError:
+                pass
 
         statuses = request.GET.getlist('status')
         if statuses:
-            statuses = [int(s) for s in statuses]
-            query_params['filtering']['status__in'] = statuses
+            try:
+                statuses = [int(s) for s in statuses]
+                query_params['filtering']['status__in'] = statuses
+            except ValueError:
+                pass
 
         date_from = request.GET.get('date_from')
         if date_from:
@@ -658,8 +700,15 @@ def ticket_list(request):
         sortreverse = request.GET.get('sortreverse', None)
         query_params['sortreverse'] = sortreverse
 
-    ticket_qs = apply_query(Ticket.objects.select_related(), query_params)
-    print >> sys.stderr,  str(ticket_qs.query)
+    try:
+        ticket_qs = apply_query(Ticket.objects.select_related(), query_params)
+    except ValidationError:
+        # invalid parameters in query, return default query
+        query_params = {
+            'filtering': {'status__in': [1, 2, 3]},
+            'sorting': 'created',
+        }
+        ticket_qs = apply_query(Ticket.objects.select_related(), query_params)
 
     ## TAG MATCHING
     if HAS_TAG_SUPPORT:
@@ -680,7 +729,7 @@ def ticket_list(request):
         tickets = ticket_paginator.page(ticket_paginator.num_pages)
 
     search_message = ''
-    if context.has_key('query') and settings.DATABASE_ENGINE.startswith('sqlite'):
+    if context.has_key('query') and settings.DATABASES['default']['ENGINE'].endswith('sqlite'):
         search_message = _('<p><strong>Note:</strong> Your keyword search is case sensitive because of your database. This means the search will <strong>not</strong> be accurate. By switching to a different database system you will gain better searching! For more information, read the <a href="http://docs.djangoproject.com/en/dev/ref/databases/#sqlite-string-matching">Django Documentation on string matching in SQLite</a>.')
 
 
@@ -690,10 +739,8 @@ def ticket_list(request):
 
     user_saved_queries = SavedSearch.objects.filter(Q(user=request.user) | Q(shared__exact=True))
 
-    query_string = []
-    for get_key, get_value in request.GET.iteritems():
-        if get_key != "page":
-            query_string.append("%s=%s" % (get_key, get_value))
+    querydict = request.GET.copy()
+    querydict.pop('page', 1)
 
     tag_choices = []
     if HAS_TAG_SUPPORT:
@@ -703,7 +750,7 @@ def ticket_list(request):
     return render_to_response('helpdesk/ticket_list.html',
         RequestContext(request, dict(
             context,
-            query_string="&".join(query_string),
+            query_string=querydict.urlencode(),
             tickets=tickets,
             user_choices=User.objects.filter(is_active=True),
             queue_choices=Queue.objects.all(),
@@ -754,7 +801,11 @@ def create_ticket(request):
 
         form = TicketForm(initial=initial_data)
         form.fields['queue'].choices = [('', '--------')] + [[q.id, q.title] for q in Queue.objects.all()]
-        form.fields['assigned_to'].choices = [('', '--------')] + [[u.id, u.username] for u in User.objects.filter(is_active=True).order_by('username')]
+        if helpdesk_settings.HELPDESK_STAFF_ONLY_TICKET_OWNERS:
+            users = User.objects.filter(is_active=True, is_staff=True).order_by('username')
+        else:
+            users = User.objects.filter(is_active=True).order_by('username')
+        form.fields['assigned_to'].choices = [('', '--------')] + [[u.id, u.username] for u in users]
         if helpdesk_settings.HELPDESK_CREATE_TICKET_HIDE_ASSIGNED_TO:
             form.fields['assigned_to'].widget = forms.HiddenInput()
 

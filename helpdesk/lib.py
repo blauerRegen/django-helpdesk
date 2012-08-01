@@ -18,6 +18,9 @@ try:
 except ImportError:
     from base64 import decodestring as b64decode
 
+import logging
+logger = logging.getLogger('helpdesk')
+
 from django.utils.encoding import smart_str
 
 def send_templated_mail(template_name, email_context, recipients, sender=None, bcc=None, fail_silently=False, files=None):
@@ -73,6 +76,8 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         try:
             t = EmailTemplate.objects.get(template_name__iexact=template_name, locale__isnull=True)
         except EmailTemplate.DoesNotExist:
+            logger.warning('template "%s" does not exist, no mail sent' %
+			   template_name)
             return # just ignore if template doesn't exist
 
     if not sender:
@@ -113,7 +118,7 @@ def send_templated_mail(template_name, email_context, recipients, sender=None, b
         "{{ ticket.ticket }} {{ ticket.title|safe }} %s" % t.subject
         ).render(context)
 
-    if type(recipients) == str or type(recipients) == unicode:
+    if isinstance(recipients,(str,unicode)):
         if recipients.find(','):
             recipients = recipients.split(',')
     elif type(recipients) != list:
@@ -159,7 +164,7 @@ def query_to_dict(results, descriptions):
 
 def apply_query(queryset, params):
     """
-    Apply a dict-based set of filters & paramaters to a queryset.
+    Apply a dict-based set of filters & parameters to a queryset.
 
     queryset is a Django queryset, eg MyModel.objects.all() or
              MyModel.objects.filter(user=request.user)
@@ -179,10 +184,12 @@ def apply_query(queryset, params):
         # eg a Q() set
         queryset = queryset.filter(params['other_filter'])
 
-    if params.get('sorting', None):
-        if params.get('sortreverse', None):
-            params['sorting'] = "-%s" % params['sorting']
-        queryset = queryset.order_by(params['sorting'])
+    sorting = params.get('sorting', None)
+    if sorting:
+        sortreverse = params.get('sortreverse', None)
+        if sortreverse:
+            sorting = "-%s" % sorting
+        queryset = queryset.order_by(sorting)
 
     return queryset
 
@@ -190,7 +197,7 @@ def apply_query(queryset, params):
 def safe_template_context(ticket):
     """
     Return a dictionary that can be used as a template context to render
-    comments and other details with ticket or queue paramaters. Note that
+    comments and other details with ticket or queue parameters. Note that
     we don't just provide the Ticket & Queue objects to the template as
     they could reveal confidential information. Just imagine these two options:
         * {{ ticket.queue.email_box_password }}
