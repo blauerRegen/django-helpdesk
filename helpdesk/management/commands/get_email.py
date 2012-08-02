@@ -126,7 +126,7 @@ def process_queue(q, quiet=False):
                 ticket = ticket_from_message(message=data[0][1], queue=q, quiet=quiet)
                 if ticket:
                     server.store(num, '+FLAGS', '\\Deleted')
-        
+
         server.expunge()
         server.close()
         server.logout()
@@ -235,6 +235,7 @@ def ticket_from_message(message, queue, quiet):
     if smtp_priority in high_priority_types or smtp_importance in high_priority_types:
         priority = 2
 
+    update = ''
     if ticket == None:
         t = Ticket(
             title=subject,
@@ -247,7 +248,6 @@ def ticket_from_message(message, queue, quiet):
         )
         t.save()
         new = True
-        update = ''
 
     elif t.status == Ticket.CLOSED_STATUS:
         t.status = Ticket.REOPENED_STATUS
@@ -264,7 +264,7 @@ def ticket_from_message(message, queue, quiet):
     if t.status == Ticket.REOPENED_STATUS:
         f.new_status = Ticket.REOPENED_STATUS
         f.title = _('Ticket Re-Opened by E-Mail Received from %(sender_email)s' % {'sender_email': sender_email})
-    
+
     f.save()
 
     if not quiet:
@@ -290,7 +290,7 @@ def ticket_from_message(message, queue, quiet):
 
     if new:
         """
-        
+
         if sender_email:
             send_templated_mail(
                 'newticket_submitter',
