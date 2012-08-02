@@ -10,6 +10,8 @@ urls.py - Mapping of URL's to our various views. Note we always used NAMED
 from django.conf import settings
 from django.conf.urls.defaults import *
 from django.contrib.auth.decorators import login_required
+from django.views import static
+from django.views.decorators.cache import never_cache
 
 from helpdesk import settings as helpdesk_settings
 from helpdesk.views import feeds
@@ -78,7 +80,7 @@ urlpatterns = patterns('helpdesk.views.staff',
     url(r'^tickets/(?P<ticket_id>[0-9]+)/dependency/delete/(?P<dependency_id>[0-9]+)/$',
         'ticket_dependency_del',
         name='helpdesk_ticket_dependency_del'),
-        
+
     url(r'^tickets/(?P<ticket_id>[0-9]+)/attachment_delete/(?P<attachment_id>[0-9]+)/$',
         'attachment_del',
         name='helpdesk_attachment_del'),
@@ -135,30 +137,30 @@ urlpatterns += patterns('helpdesk.views.public',
 
     url(r'^change_language/$',
         'change_language',
-        name='helpdesk_public_change_language'),        
+        name='helpdesk_public_change_language'),
 )
 
 urlpatterns += patterns('',
     url(r'^rss/user/(?P<user_name>[A-Za-z0-9_-]+)/$',
         login_required(feeds.OpenTicketsByUser()),
         name='helpdesk_rss_user'),
-    
+
     url(r'^rss/user/(?P<user_name>[A-Za-z0-9_-]+)/(?P<queue_slug>[A-Za-z0-9_-]+)/$',
         login_required(feeds.OpenTicketsByUser()),
         name='helpdesk_rss_user_queue'),
-    
+
     url(r'^rss/queue/(?P<queue_slug>[A-Za-z0-9_-]+)/$',
         login_required(feeds.OpenTicketsByQueue()),
         name='helpdesk_rss_queue'),
-    
+
     url(r'^rss/unassigned/$',
         login_required(feeds.UnassignedTickets()),
         name='helpdesk_rss_unassigned'),
-    
+
     url(r'^rss/recent_activity/$',
         login_required(feeds.RecentFollowUps()),
         name='helpdesk_rss_activity'),
-    
+
 )
 
 
@@ -182,7 +184,7 @@ if helpdesk_settings.HELPDESK_KB_ENABLED:
     urlpatterns += patterns('helpdesk.views.kb',
         url(r'^kb/$',
             'index', name='helpdesk_kb_index'),
-        
+
         url(r'^kb/(?P<item>[0-9]+)/$',
             'item', name='helpdesk_kb_item'),
 
@@ -213,4 +215,12 @@ urlpatterns += patterns('',
             },
         },
         name='helpdesk_system_settings'),
+)
+
+urlpatterns += patterns('',
+    url(r'public/(?P<path>.*)/$',
+        never_cache(static.serve),
+        {
+            'document_root':settings.MEDIA_URL,
+        }),
 )
