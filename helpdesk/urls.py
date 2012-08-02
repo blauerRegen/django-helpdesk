@@ -10,8 +10,6 @@ urls.py - Mapping of URL's to our various views. Note we always used NAMED
 from django.conf import settings
 from django.conf.urls.defaults import *
 from django.contrib.auth.decorators import login_required
-from django.views import static
-from django.views.decorators.cache import never_cache
 
 from helpdesk import settings as helpdesk_settings
 from helpdesk.views import feeds
@@ -215,12 +213,4 @@ urlpatterns += patterns('',
             },
         },
         name='helpdesk_system_settings'),
-)
-
-urlpatterns += patterns('',
-    url(r'public/(?P<path>.*)/$',
-        never_cache(static.serve),
-        {
-            'document_root':settings.MEDIA_URL,
-        }),
 )
